@@ -40,6 +40,7 @@ Run: streamlit run app.py
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import time
@@ -1081,6 +1082,13 @@ def main() -> None:
         "Coordinated payment abuse review console -- ML scores (predicted "
         "fraud probability, 0-1), an LLM explains, policy.py decides."
     )
+
+    mode = st.radio("Data source", ["Research console", "Live Kafka decisions"], horizontal=True,
+                    index=1 if os.environ.get("FRAUD_DASHBOARD_MODE") == "live" else 0)
+    if mode == "Live Kafka decisions":
+        from dashboard_live import render_live
+        render_live()
+        return
 
     pipeline_data, trained = load_pipeline_or_stop()
 

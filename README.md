@@ -81,6 +81,19 @@ to end, except `results/case_studies.md` (hand-curated, see
 
 Run the dashboard: `streamlit run app.py`
 
+## Kafka and Hadoop
+
+The repository also supports a Kafka serving path and a Hadoop HDFS archive:
+export a trained model/feature bundle, replay real held-out transactions into
+Kafka, score them in a consumer, and view decisions live in Streamlit. Spark
+archives observations, decisions, errors, and separately observed labels as
+Parquet in HDFS. A batch job prepares labeled history for later retraining.
+
+The local Docker Compose setup, exact commands, event contracts, delivery
+guarantees, and remaining research limitations are in
+[docs/STREAMING.md](docs/STREAMING.md). The streaming mode requires
+`requirements-streaming.txt` when running Python services outside Docker.
+
 ## Setup
 
 1. **Python environment**

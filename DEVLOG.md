@@ -1,5 +1,25 @@
 # Dev log
 
+## 2026-10-19 — Kafka serving and Hadoop archive
+
+Added an optional serving bundle exporter, Kafka observation replay, transactional
+scoring/dead-letter handling, an idempotent SQLite decision projection, and a
+Streamlit live mode that does not load the research pipeline. Added Spark jobs
+for HDFS archival and preparing history from explicitly observed labels, plus a
+local Docker Compose deployment and docs/STREAMING.md.
+
+Validation: the existing 57 tests passed, and 20 new streaming/dashboard tests
+passed, including actual LightGBM save/load score parity. Fixed JSON nulls causing
+the existing UID resolver's one-row numeric conversion to fail. These checks ran
+on local Python 3.11 with compatible available dependencies; the Docker image
+uses Python 3.13 and the repository's pinned requirements. Python compilation,
+Compose YAML parsing, Hadoop XML parsing, and git whitespace checks passed.
+Docker is absent and the real CSVs are absent, so no trained real-data bundle or
+running broker/HDFS deployment was produced here. The optional Spark test was
+skipped; a real-data Kafka round-trip smoke command is provided for deployment.
+The original training-label and threshold-selection limitations are preserved
+and disclosed in manifests and the run guide; no model-quality claim was changed.
+
 Honest, specific notes on what was built, what was surprising, and what broke
 or needed correcting. Written as work happens, not cleaned up afterward.
 

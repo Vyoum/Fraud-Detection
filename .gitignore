@@ -222,3 +222,7 @@ data/**
 *.csv
 *.pkl
 .env
+
+# Exported models, replay observations, and the live dashboard projection.
+artifacts/
+runtime/

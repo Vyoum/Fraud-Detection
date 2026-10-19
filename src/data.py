@@ -12,6 +12,24 @@ IDENTITY_FILENAME = "train_identity.csv"
 _CATEGORY_MAX_UNIQUE = 50
 
 
+def load_history_parquet(path: str) -> pd.DataFrame:
+    """Read joined, labeled history from local Parquet or HDFS via PyArrow.
+
+    HDFS requires libhdfs and a Hadoop client configuration. The raw Kafka
+    archive has an envelope schema and must first be flattened and joined
+    with observed labels by jobs/prepare_history.py.
+    """
+    df = pd.read_parquet(path, engine="pyarrow")
+    required = {"TransactionID", "TransactionDT", "TransactionAmt", "card1", "addr1", "D1", "isFraud"}
+    if missing := required - set(df.columns):
+        raise ValueError(f"Historical Parquet is missing columns: {sorted(missing)}")
+    if df["TransactionID"].duplicated().any():
+        raise ValueError("Historical Parquet must have one row per TransactionID")
+    if df["TransactionDT"].isna().any() or not df["isFraud"].isin([0, 1]).all():
+        raise ValueError("History requires valid timestamps and explicit binary labels")
+    return _downcast_dtypes(df)
+
+
 def load_transactions(path: Path, nrows: int | None = None) -> pd.DataFrame:
     """Load train_transaction.csv, left-joined with train_identity.csv.
 

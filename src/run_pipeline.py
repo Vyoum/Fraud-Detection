@@ -131,11 +131,12 @@ def broadcast_cluster_features(
     return broadcast
 
 
-def load_and_prepare(nrows: int | None = None) -> PipelineData:
+def load_and_prepare(nrows: int | None = None, history_parquet: str | None = None) -> PipelineData:
     """Load data, resolve entities, split temporally, build the graph and
     compute cluster features -- all from train-period data only.
     """
-    df = data.load_transactions(DATA_DIR, nrows=nrows)
+    df = (data.load_history_parquet(history_parquet) if history_parquet
+          else data.load_transactions(DATA_DIR, nrows=nrows))
     entity_ids = entities.resolve_entities(df)
 
     train_df, test_df = evaluate.temporal_train_test_split(df)

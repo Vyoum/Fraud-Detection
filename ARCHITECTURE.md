@@ -150,6 +150,14 @@ decides. Never merge them." Enforced structurally, not just by convention:
 
 ## Performance notes
 
+The optional Kafka/Hadoop path is described in [docs/STREAMING.md](docs/STREAMING.md).
+`src.streaming.export` creates a versioned serving bundle from this research
+pipeline. Kafka workers score observations using that frozen bundle and commit
+decisions with input offsets; a SQLite projection serves the live dashboard.
+Spark archives events into HDFS and prepares explicitly labeled historical
+Parquet for later batch runs. Graph construction and training remain local,
+and the existing training/threshold-selection limitations still apply.
+
 (The actual "## Performance" section with real numbers is appended below
 this one by `run_pipeline.write_benchmark` on every `make results` run --
 named differently here on purpose, since `write_benchmark` replaces a

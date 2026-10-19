@@ -1,0 +1,119 @@
+name: fraud-detection
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: infra/app.Dockerfile
+  environment: &app-env
+    KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+    FRAUD_DECISION_DB: /app/runtime/decisions.sqlite
+    FRAUD_DASHBOARD_MODE: live
+  volumes:
+    - ./artifacts:/app/artifacts
+    - ./runtime:/app/runtime
+    - ./data:/app/data:ro
+
+services:
+  kafka:
+    image: apache/kafka:4.1.2
+    hostname: kafka
+    ports: ["127.0.0.1:9092:9092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_LISTENERS: CONTROLLER://:29093,INTERNAL://:19092,HOST://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes: ["kafka-data:/var/lib/kafka/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:19092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+
+  namenode:
+    build:
+      context: .
+      dockerfile: infra/hadoop/Dockerfile
+    hostname: namenode
+    command: ["namenode"]
+    ports: ["127.0.0.1:9870:9870"]
+    volumes: ["hdfs-name:/hadoop/name", "./artifacts:/artifacts:ro"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9870/jmx >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  datanode:
+    build:
+      context: .
+      dockerfile: infra/hadoop/Dockerfile
+    hostname: datanode
+    command: ["datanode"]
+    volumes: ["hdfs-data:/hadoop/data"]
+    depends_on:
+      namenode: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "hdfs dfsadmin -report | grep -q 'Live datanodes (1)'"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+
+  topic-init:
+    <<: *app
+    command: ["python", "-m", "src.streaming.topics"]
+    depends_on:
+      kafka: {condition: service_healthy}
+
+  tools:
+    <<: *app
+    profiles: ["tools"]
+    entrypoint: ["python"]
+    command: ["-m", "src.streaming.export", "--help"]
+
+  scorer:
+    <<: *app
+    command: ["python", "-m", "src.streaming.scorer", "--bundle", "/app/artifacts/demo"]
+    profiles: ["streaming"]
+    depends_on:
+      topic-init: {condition: service_completed_successfully}
+
+  projector:
+    <<: *app
+    command: ["python", "-m", "src.streaming.store"]
+    profiles: ["streaming"]
+    depends_on:
+      topic-init: {condition: service_completed_successfully}
+
+  dashboard:
+    <<: *app
+    command: ["streamlit", "run", "app.py", "--server.address=0.0.0.0"]
+    profiles: ["streaming"]
+    ports: ["127.0.0.1:8501:8501"]
+    depends_on: [projector]
+
+  archive:
+    build:
+      context: .
+      dockerfile: infra/spark.Dockerfile
+    profiles: ["streaming"]
+    volumes: ["./artifacts:/app/artifacts"]
+    depends_on:
+      topic-init: {condition: service_completed_successfully}
+      datanode: {condition: service_healthy}
+
+volumes:
+  kafka-data:
+  hdfs-name:
+  hdfs-data:
